@@ -1,3 +1,5 @@
 function helloCore() {
-  console.log("core mechanics ready");
+    console.log("Core Mechanics ready");
 }
+
+hellocore()
