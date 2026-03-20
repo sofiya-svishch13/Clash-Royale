@@ -23,20 +23,7 @@ ctx.arc(x + 15, y - 15, 5, 0, Math.PI * 2);
 ctx.fill();
 }
 
-// Общая функция для войск
-window.drawTroop = function(ctx, x, y, type, isPlayer) {
-if (type === 'knight') window.drawKnight(ctx, x, y, isPlayer);
-if (type === 'archer') window.drawArcher(ctx, x, y, isPlayer);
-if (type === 'mage') window.drawMage(ctx, x, y, isPlayer);
-}
 
-<canvas id="testCanvas" width="800" height="400"></canvas>
-<script>
-    const canvas = document.getElementById('testCanvas');
-    const ctx = canvas.getContext('2d');
-    
-    // Очистка холста
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
     
     // Рисуем все типы войск
     drawTroop(ctx, 200, 200, 'knight', true);   // Рыцарь (игрок)
