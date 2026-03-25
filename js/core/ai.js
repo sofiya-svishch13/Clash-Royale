@@ -1,4 +1,6 @@
-// AI - противник
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// AI - противник team AI: @Eridan6935 (Эридан), @prosto73 (Рома), @sofya-svishch13 (София), @vikakilka91-dev (Вика)
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 window.AI = {
     lastDeployTime: 0,
     deployDelay: 2.5, // секунды между спавнами
