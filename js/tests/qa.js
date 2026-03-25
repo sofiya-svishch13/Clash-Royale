@@ -1,5 +1,8 @@
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // ========== QA MODULE ==========
 // QA - логирование и тесты
+// Teams qa - Георгий (Posledniy-Georgiy), Тимур(t1mch1k12), Артем(melancholicpeoplearenotpeople)
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 window.QA = {
     log: function(msg) {
         console.log(`[${new Date().toLocaleTimeString()}] ${msg}`);
