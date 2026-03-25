@@ -1,4 +1,6 @@
-// Тесты для AI модуля
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// AI - противник team AI: @Eridan6935 (Эридан), @prosto73 (Рома), @sofya-svishch13 (София), @vikakilka91-dev (Вика)
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 function runAITests() {
     console.log('🧪 Running AI Module Tests...');
     
