@@ -34,8 +34,8 @@ window.CONFIG = {
         
         // Позиции башен
         towers: {
-            player: { x: 425, y: 500 },
-            enemy: { x: 425, y: 100 }
+            player: { x: 425, y: 400 },
+            enemy: { x: 425, y: 200 }
         }
     }
 };
