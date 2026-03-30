@@ -45,7 +45,9 @@ window.Core = {
             SoundFX.playDeploy();
             QA.log(`Deployed ${type} at (${Math.floor(x)},${Math.floor(y)}) - Elixir: ${Math.floor(GameState.elixir)}`);
             return true;
-        }
+        };
+
+        Graphics.drawUnit(unit);
         
         return false;
     },
