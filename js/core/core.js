@@ -138,7 +138,7 @@ getTowerPosition: function(towerType, isEnemy) {
         if (towerType === 'right') return CONFIG.GAME.towers.enemyRight;
         return CONFIG.GAME.towers.enemyKing;
     }
-}
+},
     // ~~~~~~~~~~~~~~~~~~~
     // игровой цикл
     // ~~~~~~~~~~~~~~~~~~~
