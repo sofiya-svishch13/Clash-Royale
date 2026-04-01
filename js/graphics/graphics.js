@@ -87,7 +87,64 @@ window.Graphics = {
         this.ctx.fillStyle = 'white';
         this.ctx.fillText(`❤️ ${Math.floor(GameState.enemyTowerHP)}`, t.x - 20, t.y - 35);
     },
-    
+
+    drawPlayerLeftTower: function() {
+        const t = CONFIG.GAME.towers.playerLeft;
+        this.drawImage('playerTower', t.x - 35, t.y - 60, 70, 80);
+        
+        const percent = GameState.playerLeftTowerHP / CONFIG.GAME.towers.playerLeft.maxHp;
+        this.ctx.fillStyle = '#aa2e2e';
+        this.ctx.fillRect(t.x - 30, t.y - 70, 60, 8);
+        this.ctx.fillStyle = '#4eff6e';
+        this.ctx.fillRect(t.x - 30, t.y - 70, 60 * percent, 8);
+        
+        this.ctx.fillStyle = 'white';
+        this.ctx.font = 'bold 12px monospace';
+        this.ctx.fillText(`❤️ ${Math.floor(GameState.playerLeftTowerHP)}`, t.x - 20, t.y - 75);
+    },
+
+    drawPlayerRightTower: function() {
+        const t = CONFIG.GAME.towers.playerRight;
+        this.drawImage('playerTower', t.x - 35, t.y - 60, 70, 80);
+        
+        const percent = GameState.playerRightTowerHP / CONFIG.GAME.towers.playerRight.maxHp;
+        this.ctx.fillStyle = '#aa2e2e';
+        this.ctx.fillRect(t.x - 30, t.y - 70, 60, 8);
+        this.ctx.fillStyle = '#4eff6e';
+        this.ctx.fillRect(t.x - 30, t.y - 70, 60 * percent, 8);
+        
+        this.ctx.fillStyle = 'white';
+        this.ctx.fillText(`❤️ ${Math.floor(GameState.playerRightTowerHP)}`, t.x - 20, t.y - 75);
+    },
+
+    drawEnemyLeftTower: function() {
+        const t = CONFIG.GAME.towers.enemyLeft;
+        this.drawImage('enemyTower', t.x - 35, t.y - 20, 70, 80);
+        
+        const percent = GameState.enemyLeftTowerHP / CONFIG.GAME.towers.enemyLeft.maxHp;
+        this.ctx.fillStyle = '#aa2e2e';
+        this.ctx.fillRect(t.x - 30, t.y - 30, 60, 8);
+        this.ctx.fillStyle = '#4eff6e';
+        this.ctx.fillRect(t.x - 30, t.y - 30, 60 * percent, 8);
+        
+        this.ctx.fillStyle = 'white';
+        this.ctx.fillText(`❤️ ${Math.floor(GameState.enemyLeftTowerHP)}`, t.x - 20, t.y - 35);
+    },
+
+    drawEnemyRightTower: function() {
+        const t = CONFIG.GAME.towers.enemyRight;
+        this.drawImage('enemyTower', t.x - 35, t.y - 20, 70, 80);
+        
+        const percent = GameState.enemyRightTowerHP / CONFIG.GAME.towers.enemyRight.maxHp;
+        this.ctx.fillStyle = '#aa2e2e';
+        this.ctx.fillRect(t.x - 30, t.y - 30, 60, 8);
+        this.ctx.fillStyle = '#4eff6e';
+        this.ctx.fillRect(t.x - 30, t.y - 30, 60 * percent, 8);
+        
+        this.ctx.fillStyle = 'white';
+        this.ctx.fillText(`❤️ ${Math.floor(GameState.enemyRightTowerHP)}`, t.x - 20, t.y - 35);
+    },
+
     drawKingTower: function(isPlayer) {
         const y = isPlayer ? 520 : 65;
         this.drawImage('kingTower', 410, y - 50, 80, 90);
