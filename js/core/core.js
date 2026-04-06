@@ -1,173 +1,120 @@
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // CORE - основная игровая логика   team - core : @lafneroo  ( Остапчук Андрей )
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-window.Core = {
-    lastTime: 0,
-    // ~~~~~~~~~~~~~~~~~~~
-    // инициализация
-    // ~~~~~~~~~~~~~~~~~~~
-    init: function(canvas, ctx) {
-        Graphics.init(ctx);
-        UI.init(canvas);
-        SoundFX.init();
-        GameState.startBattle();
+class Core {
+    constructor(canvas, ctx) {
+        this.canvas = canvas;
+        this.ctx = ctx;
+        this.lastTime = 0;
+        this.gameState = null;
+        this.graphics = null;
+        this.soundFX = null;
+        this.ui = null;
+        this.ai = null;
+        this.deck = null;
+        this.animationId = null;
+    }
+    
+    async init() {
+        console.log('🎮 Инициализация игры...');
+        
+        // Инициализация компонентов
+        this.graphics = new Graphics(this.ctx);
+        this.soundFX = new SoundFX();
+        this.gameState = new GameState();
+        this.deck = new Deck();
+        this.ui = new UI(this.canvas, this.gameState, this.deck);
+        this.ai = new AI(this.gameState, this.deck);
+        
+        // Запуск игры
+        this.gameState.startBattle();
         this.lastTime = performance.now() / 1000;
-        this.gameLoop();
-    },
-    // ~~~~~~~~~~~~~~~~~~~
-    // установка юнита
-    // ~~~~~~~~~~~~~~~~~~~
-    deployUnit: function(x, y) {
-        const type = GameState.selectedUnit;
-        const cost = CONFIG.GAME.units[type].cost;
         
-        if (!GameState.canDeploy(cost)) {
-            QA.log(`Not enough elixir! Need ${cost}, have ${Math.floor(GameState.elixir)}`);
-            return false;
-        }
-        
-        const stats = CONFIG.GAME.units[type];
-        const unit = {
-            x: x,
-            y: y,
-            type: type,
-            isPlayer: true,
-            hp: stats.hp,
-            maxHp: stats.hp,
-            damage: stats.damage,
-            range: stats.range,
-            speed: stats.speed,
-            attackTimer: 0
-        };
-        
-        // Тратим эликсир через GameState
-        if (GameState.deployUnit(unit)) {
-            SoundFX.playDeploy();
-            QA.log(`Deployed ${type} at (${Math.floor(x)},${Math.floor(y)}) - Elixir: ${Math.floor(GameState.elixir)}`);
-            return true;
-        };
-        console.log("start");
-        Graphics.drawUnit(unit);
-        console.log("end");
-        return false;
-    },
-    // ~~~~~~~~~~~~~~~~~~~
-    // логика юнитов 
-    // ~~~~~~~~~~~~~~~~~~~
-updateUnits: function(delta) {
-    const units = GameState.getUnits();
-    
-    for (let i = 0; i < units.length; i++) {
-        const u = units[i];
-        
-        if (u.attackTimer > 0) u.attackTimer -= delta;
-        
-        // Определяем цель (сначала ближайшая башня на дорожке, потом юниты)
-        let target = null;
-        let targetDist = Infinity;
-        
-        // Получаем целевую башню на дорожке юнита
-        const towerTarget = GameState.getTargetTower(u, !u.isPlayer);
-        const towerPos = this.getTowerPosition(towerTarget.type, !u.isPlayer);
-        
-        if (towerPos) {
-            const distToTower = Math.hypot(u.x - towerPos.x, u.y - towerPos.y);
-            if (distToTower < u.range && towerTarget.hp > 0) {
-                target = { type: 'tower', towerType: towerTarget.type, dist: distToTower };
-                targetDist = distToTower;
-            }
-        }
-        
-        // Поиск вражеских юнитов на той же дорожке
-        for (let j = 0; j < units.length; j++) {
-            const other = units[j];
-            if (other.isPlayer !== u.isPlayer && other.lane === u.lane) {
-                const dist = Math.hypot(u.x - other.x, u.y - other.y);
-                if (dist < u.range && dist < targetDist) {
-                    target = { type: 'unit', unit: other, dist: dist };
-                    targetDist = dist;
-                }
-            }
-        }
-        
-        // Атака
-        if (target && u.attackTimer <= 0) {
-            u.attackTimer = 1.0;
-            
-            if (target.type === 'tower') {
-                GameState.damageTower(target.towerType, !u.isPlayer, u.damage);
-                console.log(`${u.type} hits ${target.towerType} tower for ${u.damage}`);
-                if (window.SoundFX) window.SoundFX.play('hit');
-            } else if (target.unit) {
-                target.unit.hp -= u.damage;
-                if (target.unit.hp <= 0) {
-                    console.log(`${u.type} killed ${target.unit.type}`);
-                } else {
-                    console.log(`${u.type} hits ${target.unit.type} for ${u.damage}`);
-                }
-                if (window.SoundFX) window.SoundFX.play('hit');
-            }
-        }
-        
-        // Движение по дорожке
-        if (!target || (target.type === 'unit' && target.unit.hp <= 0)) {
-            const path = GameState.getUnitPath(u);
-            const dx = path.targetX - u.x;
-            const dy = path.targetY - u.y;
-            const len = Math.hypot(dx, dy);
-            
-            if (len > 1) {
-                const moveX = (dx / len) * u.speed * delta;
-                const moveY = (dy / len) * u.speed * delta;
-                u.x += moveX;
-                u.y += moveY;
-            }
-        }
+        console.log('✅ Игра инициализирована!');
+        this.startLoop();
     }
     
-    GameState.removeDeadUnits();
-},
-
-getTowerPosition: function(towerType, isEnemy) {
-    if (isEnemy) {
-        if (towerType === 'left') return CONFIG.GAME.towers.playerLeft;
-        if (towerType === 'right') return CONFIG.GAME.towers.playerRight;
-        return CONFIG.GAME.towers.playerKing;
-    } else {
-        if (towerType === 'left') return CONFIG.GAME.towers.enemyLeft;
-        if (towerType === 'right') return CONFIG.GAME.towers.enemyRight;
-        return CONFIG.GAME.towers.enemyKing;
+    startLoop() {
+        const gameLoop = () => {
+            const now = performance.now() / 1000;
+            let delta = Math.min(0.033, now - this.lastTime);
+            this.lastTime = now;
+            
+            this.update(delta, now);
+            this.render();
+            
+            this.animationId = requestAnimationFrame(gameLoop);
+        };
+        
+        gameLoop();
     }
-},
-    // ~~~~~~~~~~~~~~~~~~~
-    // игровой цикл
-    // ~~~~~~~~~~~~~~~~~~~
-    startLoop: function() {
-        const now = performance.now() / 1000;
-        let delta = Math.min(0.033, now - this.lastTime);
-        this.lastTime = now;
+    
+    update(delta, now) {
+        if (!this.gameState.isActive) return;
         
-        if (GameState.isActive) {
-            GameState.updateElixir(now);
-            this.updateUnits(delta);
-            AI.update(now);
-        }
+        // Обновление эликсира
+        this.gameState.updateElixir(now);
         
-        // Отрисовка
-        const ctx = Graphics.ctx;
-        Graphics.drawArena();
-        Graphics.drawPlayerTower();
-        Graphics.drawEnemyTower();
-        Graphics.drawKingTower(true);
-        Graphics.drawKingTower(false);
+        // Обновление AI
+        this.ai.update(now);
         
-        const units = GameState.getUnits();
+        // Обновление юнитов
+        const units = this.gameState.getUnits();
+        const towers = this.gameState.towers;
+        
         for (let i = 0; i < units.length; i++) {
-            Graphics.drawUnit(units[i]);
+            units[i].update(delta, units, towers);
         }
         
-        Graphics.drawUI();
+        // Обновление башен
+        for (let tower of Object.values(towers)) {
+            tower.update(delta, units, this.gameState);
+        }
         
-        requestAnimationFrame(() => this.gameLoop());
+        // Удаление мертвых юнитов
+        this.gameState.removeDeadUnits();
+        
+        // Проверка победы
+        const winner = this.gameState.checkVictory();
+        if (winner && this.gameState.isActive) {
+            this.gameState.isActive = false;
+        }
     }
-};
+    
+    render() {
+        if (!this.graphics || !this.ctx) return;
+        
+        // Очистка
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Отрисовка арены
+        this.graphics.drawArena();
+        
+        // Отрисовка башен
+        const towers = this.gameState.towers;
+        this.graphics.drawTower(towers.playerLeft, true);
+        this.graphics.drawTower(towers.playerRight, true);
+        this.graphics.drawKingTower(towers.playerKing);
+        this.graphics.drawTower(towers.enemyLeft, false);
+        this.graphics.drawTower(towers.enemyRight, false);
+        this.graphics.drawKingTower(towers.enemyKing);
+        
+        // Отрисовка юнитов
+        const units = this.gameState.getUnits();
+        for (let unit of units) {
+            this.graphics.drawUnit(unit);
+        }
+        
+        // Отрисовка UI
+        this.graphics.drawUI(this.gameState, this.deck, this.ui.selectedCardIndex);
+    }
+    
+    stop() {
+        if (this.animationId) {
+            cancelAnimationFrame(this.animationId);
+            this.animationId = null;
+        }
+    }
+}
+
+window.Core = null;
