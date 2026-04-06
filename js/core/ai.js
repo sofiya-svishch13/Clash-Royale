@@ -68,3 +68,4 @@ class AI {
 }
 
 window.AI = null;
+свищ софи 
