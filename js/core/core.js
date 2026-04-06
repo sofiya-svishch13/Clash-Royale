@@ -54,113 +54,95 @@ window.Core = {
     // ~~~~~~~~~~~~~~~~~~~
     // логика юнитов 
     // ~~~~~~~~~~~~~~~~~~~
-    updateUnits: function(delta) {
-        const units = GameState.getUnits();
+updateUnits: function(delta) {
+    const units = GameState.getUnits();
+    
+    for (let i = 0; i < units.length; i++) {
+        const u = units[i];
         
-        for (let i = 0; i < units.length; i++) {
-            const u = units[i];
-            
-            // Обновление таймера атаки
-            if (u.attackTimer > 0) u.attackTimer -= delta;
-            
-            // Поиск цели
-            let target = null;
-            let targetDist = Infinity;
-            
-            if (u.isPlayer) {
-                // Игрок атакует вражескую башню (вверху)
-                const tower = CONFIG.GAME.towers.enemy;
-                const distToTower = Math.hypot(u.x - tower.x, u.y - tower.y);
-                if (distToTower < u.range && GameState.enemyTowerHP > 0) {
-                    target = { type: 'tower', dist: distToTower };
-                    targetDist = distToTower;
-                }
-                
-                // Поиск вражеских юнитов
-                for (let j = 0; j < units.length; j++) {
-                    const other = units[j];
-                    if (!other.isPlayer) {
-                        const dist = Math.hypot(u.x - other.x, u.y - other.y);
-                        if (dist < u.range && dist < targetDist) {
-                            target = { type: 'unit', unit: other, index: j, dist: dist };
-                            targetDist = dist;
-                        }
-                    }
-                }
-            } else {
-                // Враг атакует башню игрока (внизу)
-                const tower = CONFIG.GAME.towers.player;
-                const distToTower = Math.hypot(u.x - tower.x, u.y - tower.y);
-                if (distToTower < u.range && GameState.playerTowerHP > 0) {
-                    target = { type: 'tower', dist: distToTower };
-                    targetDist = distToTower;
-                }
-                
-                // Поиск игроков
-                for (let j = 0; j < units.length; j++) {
-                    const other = units[j];
-                    if (other.isPlayer) {
-                        const dist = Math.hypot(u.x - other.x, u.y - other.y);
-                        if (dist < u.range && dist < targetDist) {
-                            target = { type: 'unit', unit: other, index: j, dist: dist };
-                            targetDist = dist;
-                        }
-                    }
+        if (u.attackTimer > 0) u.attackTimer -= delta;
+        
+        // Определяем цель (сначала ближайшая башня на дорожке, потом юниты)
+        let target = null;
+        let targetDist = Infinity;
+        
+        // Получаем целевую башню на дорожке юнита
+        const towerTarget = GameState.getTargetTower(u, !u.isPlayer);
+        const towerPos = this.getTowerPosition(towerTarget.type, !u.isPlayer);
+        
+        if (towerPos) {
+            const distToTower = Math.hypot(u.x - towerPos.x, u.y - towerPos.y);
+            if (distToTower < u.range && towerTarget.hp > 0) {
+                target = { type: 'tower', towerType: towerTarget.type, dist: distToTower };
+                targetDist = distToTower;
+            }
+        }
+        
+        // Поиск вражеских юнитов на той же дорожке
+        for (let j = 0; j < units.length; j++) {
+            const other = units[j];
+            if (other.isPlayer !== u.isPlayer && other.lane === u.lane) {
+                const dist = Math.hypot(u.x - other.x, u.y - other.y);
+                if (dist < u.range && dist < targetDist) {
+                    target = { type: 'unit', unit: other, dist: dist };
+                    targetDist = dist;
                 }
             }
+        }
+        
+        // Атака
+        if (target && u.attackTimer <= 0) {
+            u.attackTimer = 1.0;
             
-            // Атака
-            if (target && u.attackTimer <= 0) {
-                u.attackTimer = 1.0; // 1 атака в секунду
-                
-                if (target.type === 'tower') {
-                    if (u.isPlayer) {
-                        GameState.enemyTowerHP = Math.max(0, GameState.enemyTowerHP - u.damage);
-                        QA.log(`${u.type} hits enemy tower for ${u.damage}`);
-                    } else {
-                        GameState.playerTowerHP = Math.max(0, GameState.playerTowerHP - u.damage);
-                        QA.log(`${u.type} hits player tower for ${u.damage}`);
-                    }
-                    SoundFX.playHit();
-                } else if (target.unit) {
-                    target.unit.hp -= u.damage;
-                    QA.log(`${u.type} hits ${target.unit.type} for ${u.damage}`);
-                    SoundFX.playHit();
-                }
-            }
-            
-            // ДВИЖЕНИЕ: игроки идут вверх (уменьшаем Y), враги идут вниз (увеличиваем Y)
-            if (!target || (target.type === 'unit' && target.unit.hp <= 0)) {
-                if (u.isPlayer) {
-                    // Игрок идет ВВЕРХ (к вражеской башне)
-                    u.y -= u.speed * delta;
-                    // Ограничиваем, чтобы не улетел за башню
-                    if (u.y < 40) u.y = 40;
+            if (target.type === 'tower') {
+                GameState.damageTower(target.towerType, !u.isPlayer, u.damage);
+                console.log(`${u.type} hits ${target.towerType} tower for ${u.damage}`);
+                if (window.SoundFX) window.SoundFX.play('hit');
+            } else if (target.unit) {
+                target.unit.hp -= u.damage;
+                if (target.unit.hp <= 0) {
+                    console.log(`${u.type} killed ${target.unit.type}`);
                 } else {
-                    // Враг идет ВНИЗ (к башне игрока)
-                    u.y += u.speed * delta;
-                    // Ограничиваем, чтобы не улетел за башню
-                    if (u.y > CONFIG.GAME.height - 40) u.y = CONFIG.GAME.height - 40;
+                    console.log(`${u.type} hits ${target.unit.type} for ${u.damage}`);
                 }
+                if (window.SoundFX) window.SoundFX.play('hit');
             }
         }
         
-        // Удаление мертвых юнитов
-        GameState.removeDeadUnits();
-        
-        // Проверка победы
-        if (GameState.enemyTowerHP <= 0) {
-            GameState.endBattle('player');
-            QA.log('VICTORY!');
-        } else if (GameState.playerTowerHP <= 0) {
-            GameState.endBattle('enemy');
-            QA.log('DEFEAT!');
+        // Движение по дорожке
+        if (!target || (target.type === 'unit' && target.unit.hp <= 0)) {
+            const path = GameState.getUnitPath(u);
+            const dx = path.targetX - u.x;
+            const dy = path.targetY - u.y;
+            const len = Math.hypot(dx, dy);
+            
+            if (len > 1) {
+                const moveX = (dx / len) * u.speed * delta;
+                const moveY = (dy / len) * u.speed * delta;
+                u.x += moveX;
+                u.y += moveY;
+            }
         }
-    },
+    }
+    
+    GameState.removeDeadUnits();
+},
+
+getTowerPosition: function(towerType, isEnemy) {
+    if (isEnemy) {
+        if (towerType === 'left') return CONFIG.GAME.towers.playerLeft;
+        if (towerType === 'right') return CONFIG.GAME.towers.playerRight;
+        return CONFIG.GAME.towers.playerKing;
+    } else {
+        if (towerType === 'left') return CONFIG.GAME.towers.enemyLeft;
+        if (towerType === 'right') return CONFIG.GAME.towers.enemyRight;
+        return CONFIG.GAME.towers.enemyKing;
+    }
+},
     // ~~~~~~~~~~~~~~~~~~~
     // игровой цикл
     // ~~~~~~~~~~~~~~~~~~~
-    gameLoop: function() {
+    startLoop: function() {
         const now = performance.now() / 1000;
         let delta = Math.min(0.033, now - this.lastTime);
         this.lastTime = now;
