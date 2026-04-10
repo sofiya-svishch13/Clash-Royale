@@ -57,6 +57,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     render();
     console.log('Stage 3: Complete Clash Royale with lanes, towers, and sounds!');
-})();
+})
     
 
