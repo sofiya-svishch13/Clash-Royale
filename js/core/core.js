@@ -1,189 +1,147 @@
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // CORE - основная игровая логика   team - core : @lafneroo  ( Остапчук Андрей )
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-window.Core = {
-    lastTime: 0,
-    // ~~~~~~~~~~~~~~~~~~~
-    // инициализация
-    // ~~~~~~~~~~~~~~~~~~~
-    init: function(canvas, ctx) {
-        Graphics.init(ctx);
-        UI.init(canvas);
-        SoundFX.init();
-        GameState.startBattle();
-        this.lastTime = performance.now() / 1000;
-        this.gameLoop();
-    },
-    // ~~~~~~~~~~~~~~~~~~~
-    // установка юнита
-    // ~~~~~~~~~~~~~~~~~~~
-    deployUnit: function(x, y) {
-        const type = GameState.selectedUnit;
-        const cost = CONFIG.GAME.units[type].cost;
+class Core {
+    constructor(canvas, ctx) {
+        // Конструктор класса Core - инициализирует основные свойства игрового ядра
+        // canvas: HTMLCanvasElement - элемент canvas, на котором будет отображаться игра
+        // ctx: CanvasRenderingContext2D - контекст для рисования на canvas (позволяет рисовать фигуры, текст и т.д.)
+        this.canvas = canvas;
+        this.ctx = ctx;
+        this.lastTime = 0;           // Время последнего кадра в секундах (используется для расчета дельты времени)
+        this.gameState = null;       // Состояние игры (хранит все данные: юниты, башни, эликсир, активна ли игра)
+        this.graphics = null;        // Объект для отрисовки графики (башни, юниты, интерфейс, арена)
+        this.soundFX = null;         // Объект для управления звуковыми эффектами (атаки, спавн юнитов, победа)
+        this.ui = null;              // Объект пользовательского интерфейса (обработка нажатий на карты, кнопки)
+        this.ai = null;              // Объект искусственного интеллекта противника (управляет действиями врага)
+        this.deck = null;            // Колода карт игрока (содержит доступных для призыва юнитов)
+        this.animationId = null;     // ID анимационного фрейма для requestAnimationFrame (нужен для остановки цикла)
+    }
+    
+    async init() {
+        // Асинхронная инициализация игры - создает все компоненты и запускает игровой цикл
+        // async позволяет использовать await внутри, если понадобится загружать ресурсы (звуки, спрайты)
+
+        console.log('🎮 Инициализация игры...');
         
-        if (!GameState.canDeploy(cost)) {
-            QA.log(`Not enough elixir! Need ${cost}, have ${Math.floor(GameState.elixir)}`);
-            return false;
-        }
+        // Инициализация компонентов - создаем экземпляры всех классов, необходимых для работы игры
+        this.graphics = new Graphics(this.ctx);     // Графический движок для отрисовки
+        this.soundFX = new SoundFX();               // Звуковой движок для воспроизведения эффектов
+        this.gameState = new GameState();           // Объект, хранящий текущее состояние игры
+        this.deck = new Deck();                     // Колода с картами юнитов
+        this.ui = new UI(this.canvas, this.gameState, this.deck);   // Интерфейс для взаимодействия с игроком
+        this.ai = new AI(this.gameState, this.deck); // ИИ, который управляет действиями противника
         
-        const stats = CONFIG.GAME.units[type];
-        const unit = {
-            x: x,
-            y: y,
-            type: type,
-            isPlayer: true,
-            hp: stats.hp,
-            maxHp: stats.hp,
-            damage: stats.damage,
-            range: stats.range,
-            speed: stats.speed,
-            attackTimer: 0
+        // Запуск игры - инициализируем начало битвы (сбрасываем здоровье башен, эликсир и т.д.)
+        this.gameState.startBattle();
+        this.lastTime = performance.now() / 1000;   // Запоминаем текущее время для расчета дельты
+        
+        console.log('✅ Игра инициализирована!');
+        this.startLoop();                           // Запускаем игровой цикл
+    }
+    
+    startLoop() {
+        // Запускает основной игровой цикл с использованием requestAnimationFrame
+        // requestAnimationFrame - браузерный метод, который вызывает функцию перед каждой перерисовкой экрана
+        // Вычисляет дельту времени между кадрами для плавной анимации и независимости от FPS
+        const gameLoop = () => {
+            const now = performance.now() / 1000;   // Текущее время в секундах
+            let delta = Math.min(0.033, now - this.lastTime);  // Ограничиваем дельту максимум 33мс (для предотвращения больших скачков)
+            // Если игра зависла, delta не будет больше 0.033, что предотвращает "телепортацию" юнитов
+            this.lastTime = now;
+            
+            this.update(delta, now);    // Обновляем логику игры (движение, атаки, спавн)
+            this.render();              // Отрисовываем текущее состояние игры на canvas
+            
+            this.animationId = requestAnimationFrame(gameLoop);  // Запрашиваем следующий кадр
         };
         
-        // Тратим эликсир через GameState
-        if (GameState.deployUnit(unit)) {
-            SoundFX.playDeploy();
-            QA.log(`Deployed ${type} at (${Math.floor(x)},${Math.floor(y)}) - Elixir: ${Math.floor(GameState.elixir)}`);
-            return true;
-        }
-        
-        return false;
-    },
-    // ~~~~~~~~~~~~~~~~~~~
-    // логика юнитов 
-    // ~~~~~~~~~~~~~~~~~~~
-    updateUnits: function(delta) {
-        const units = GameState.getUnits();
-        
-        for (let i = 0; i < units.length; i++) {
-            const u = units[i];
-            
-            // Обновление таймера атаки
-            if (u.attackTimer > 0) u.attackTimer -= delta;
-            
-            // Поиск цели
-            let target = null;
-            let targetDist = Infinity;
-            
-            if (u.isPlayer) {
-                // Игрок атакует вражескую башню (вверху)
-                const tower = CONFIG.GAME.towers.enemy;
-                const distToTower = Math.hypot(u.x - tower.x, u.y - tower.y);
-                if (distToTower < u.range && GameState.enemyTowerHP > 0) {
-                    target = { type: 'tower', dist: distToTower };
-                    targetDist = distToTower;
-                }
-                
-                // Поиск вражеских юнитов
-                for (let j = 0; j < units.length; j++) {
-                    const other = units[j];
-                    if (!other.isPlayer) {
-                        const dist = Math.hypot(u.x - other.x, u.y - other.y);
-                        if (dist < u.range && dist < targetDist) {
-                            target = { type: 'unit', unit: other, index: j, dist: dist };
-                            targetDist = dist;
-                        }
-                    }
-                }
-            } else {
-                // Враг атакует башню игрока (внизу)
-                const tower = CONFIG.GAME.towers.player;
-                const distToTower = Math.hypot(u.x - tower.x, u.y - tower.y);
-                if (distToTower < u.range && GameState.playerTowerHP > 0) {
-                    target = { type: 'tower', dist: distToTower };
-                    targetDist = distToTower;
-                }
-                
-                // Поиск игроков
-                for (let j = 0; j < units.length; j++) {
-                    const other = units[j];
-                    if (other.isPlayer) {
-                        const dist = Math.hypot(u.x - other.x, u.y - other.y);
-                        if (dist < u.range && dist < targetDist) {
-                            target = { type: 'unit', unit: other, index: j, dist: dist };
-                            targetDist = dist;
-                        }
-                    }
-                }
-            }
-            
-            // Атака
-            if (target && u.attackTimer <= 0) {
-                u.attackTimer = 1.0; // 1 атака в секунду
-                
-                if (target.type === 'tower') {
-                    if (u.isPlayer) {
-                        GameState.enemyTowerHP = Math.max(0, GameState.enemyTowerHP - u.damage);
-                        QA.log(`${u.type} hits enemy tower for ${u.damage}`);
-                    } else {
-                        GameState.playerTowerHP = Math.max(0, GameState.playerTowerHP - u.damage);
-                        QA.log(`${u.type} hits player tower for ${u.damage}`);
-                    }
-                    SoundFX.playHit();
-                } else if (target.unit) {
-                    target.unit.hp -= u.damage;
-                    QA.log(`${u.type} hits ${target.unit.type} for ${u.damage}`);
-                    SoundFX.playHit();
-                }
-            }
-            
-            // ДВИЖЕНИЕ: игроки идут вверх (уменьшаем Y), враги идут вниз (увеличиваем Y)
-            if (!target || (target.type === 'unit' && target.unit.hp <= 0)) {
-                if (u.isPlayer) {
-                    // Игрок идет ВВЕРХ (к вражеской башне)
-                    u.y -= u.speed * delta;
-                    // Ограничиваем, чтобы не улетел за башню
-                    if (u.y < 40) u.y = 40;
-                } else {
-                    // Враг идет ВНИЗ (к башне игрока)
-                    u.y += u.speed * delta;
-                    // Ограничиваем, чтобы не улетел за башню
-                    if (u.y > CONFIG.GAME.height - 40) u.y = CONFIG.GAME.height - 40;
-                }
-            }
-        }
-        
-        // Удаление мертвых юнитов
-        GameState.removeDeadUnits();
-        
-        // Проверка победы
-        if (GameState.enemyTowerHP <= 0) {
-            GameState.endBattle('player');
-            QA.log('VICTORY!');
-        } else if (GameState.playerTowerHP <= 0) {
-            GameState.endBattle('enemy');
-            QA.log('DEFEAT!');
-        }
-    },
-    // ~~~~~~~~~~~~~~~~~~~
-    // игровой цикл
-    // ~~~~~~~~~~~~~~~~~~~
-    gameLoop: function() {
-        const now = performance.now() / 1000;
-        let delta = Math.min(0.033, now - this.lastTime);
-        this.lastTime = now;
-        
-        if (GameState.isActive) {
-            GameState.updateElixir(now);
-            this.updateUnits(delta);
-            AI.update(now);
-        }
-        
-        // Отрисовка
-        const ctx = Graphics.ctx;
-        Graphics.drawArena();
-        Graphics.drawPlayerTower();
-        Graphics.drawEnemyTower();
-        Graphics.drawKingTower(true);
-        Graphics.drawKingTower(false);
-        
-        const units = GameState.getUnits();
-        for (let i = 0; i < units.length; i++) {
-            Graphics.drawUnit(units[i]);
-        }
-        
-        Graphics.drawUI();
-        
-        requestAnimationFrame(() => this.gameLoop());
+        gameLoop();  // Стартуем цикл
     }
-};
+    
+    update(delta, now) {
+        // Обновляет игровую логику: эликсир, AI, позиции юнитов, башни и проверку победы
+        // delta: число - время, прошедшее с последнего кадра (в секундах). Используется для плавного движения юнитов
+        // now: число - текущее время в секундах (используется для генерации эликсира и задержек AI)
+        
+        if (!this.gameState.isActive) return;   // Если игра окончена (кто-то победил), не обновляем логику
+        
+        // Обновление эликсира - добавляем эликсир игроку и AI с течением времени
+        this.gameState.updateElixir(now);
+        
+        // Обновление AI - проверяем, может ли AI призвать юнита, и если да - призываем
+        this.ai.update(now);
+        
+        // Обновление юнитов - перемещаем юнитов, проверяем атаки, применяем урон
+        const units = this.gameState.getUnits();   // Получаем массив всех юнитов на поле
+        const towers = this.gameState.towers;      // Получаем объект со всеми башнями (игрока и врага)
+        
+        for (let i = 0; i < units.length; i++) {
+            // Для каждого юнита вызываем его метод update, который:
+            // - перемещает юнита в зависимости от его стороны (влево или вправо)
+            // - ищет цель для атаки (вражеского юнита или башню)
+            // - наносит урон, если цель в радиусе атаки
+            units[i].update(delta, units, towers);
+        }
+        
+        // Обновление башен - каждая башня проверяет, есть ли враги в радиусе, и атакует
+        for (let tower of Object.values(towers)) {
+            tower.update(delta, units, this.gameState);
+        }
+        
+        // Удаление мертвых юнитов - убираем из массива юнитов тех, у кого здоровье <= 0
+        this.gameState.removeDeadUnits();
+        
+        // Проверка победы - смотрим, у какой стороны разрушена королевская башня
+        const winner = this.gameState.checkVictory();  // Возвращает 'player', 'enemy' или null
+        if (winner && this.gameState.isActive) {
+            this.gameState.isActive = false;  // Останавливаем игру, если есть победитель
+            // Здесь можно добавить звук победы/поражения
+        }
+    }
+    
+    render() {
+        // Отрисовывает все игровые объекты: арену, башни, юнитов и интерфейс
+        // Вызывается каждый кадр после обновления логики
+        // Эта функция создает визуальную картинку того, что видит игрок
+        
+        if (!this.graphics || !this.ctx) return;  // Если графика не инициализирована - выходим
+        
+        // Очистка canvas - заливаем всё пустым цветом (или фоном), чтобы старые кадры не накладывались
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Отрисовка арены - рисуем дорожку, траву, разделительную линию, декорации
+        this.graphics.drawArena();
+        
+        // Отрисовка башен - рисуем все башни игрока и врага
+        const towers = this.gameState.towers;
+        this.graphics.drawTower(towers.playerLeft, true);   // Левая башня игрока (союзная)
+        this.graphics.drawTower(towers.playerRight, true);  // Правая башня игрока (союзная)
+        this.graphics.drawKingTower(towers.playerKing);     // Королевская башня игрока (союзная)
+        this.graphics.drawTower(towers.enemyLeft, false);   // Левая башня врага
+        this.graphics.drawTower(towers.enemyRight, false);  // Правая башня врага
+        this.graphics.drawKingTower(towers.enemyKing);      // Королевская башня врага
+        
+        // Отрисовка юнитов - проходим по массиву юнитов и рисуем каждого
+        const units = this.gameState.getUnits();
+        for (let unit of units) {
+            this.graphics.drawUnit(unit);  // Рисуем юнита с его текущей позицией, здоровьем, командой
+        }
+        
+        // Отрисовка UI - рисуем интерфейс: шкалу эликсира, карты в руке, здоровье башен, кнопки
+        // selectedCardIndex - индекс выбранной карты (подсвечиваем её)
+        this.graphics.drawUI(this.gameState, this.deck, this.ui.selectedCardIndex);
+    }
+    
+    stop() {
+        // Останавливает игровой цикл, отменяя текущую анимацию
+        // Используется при завершении игры или перезагрузке, чтобы освободить ресурсы
+        // Без этого вызова игра продолжала бы работать в фоне, потребляя процессор
+        if (this.animationId) {
+            cancelAnimationFrame(this.animationId);  // Отменяем запрошенный анимационный кадр
+            this.animationId = null;                 // Обнуляем ID для возможности перезапуска
+        }
+    }
+}
+
+window.Core = null;  // Экспортируем класс в глобальную область видимости (для доступа из других файлов)

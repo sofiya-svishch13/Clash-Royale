@@ -1,9 +1,36 @@
+// ============================================================
+// main.js - Точка входа в игру
+// ============================================================
 
-// ГЛАВНЫЙ ЦИКЛ - запуск и отрисовка
-(function() {
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
+document.addEventListener('DOMContentLoaded', async () => {
+    console.log('🚀 Clash Royale - Stage 1');
     
+    const canvas = document.getElementById('gameCanvas');
+    if (!canvas) {
+        console.error('❌ Canvas не найден!');
+        return;
+    }
+     // Установка размеров canvas
+    canvas.width = window.CONFIG.GAME.width;
+    canvas.height = window.CONFIG.GAME.height;
+    const ctx = canvas.getContext('2d');
+  
+     // Создание и запуск ядра игры
+    const core = new Core(canvas, ctx);
+    await core.init();
+  
+      // Глобальные объекты для доступа из консоли (для отладки)
+    window.gameCore = core;
+    window.gameState = core.gameState;
+    window.gameGraphics = core.graphics;
+    
+    console.log('🎮 Игра запущена!');
+    
+    // QA тесты
+    if (window.QA) {
+        setTimeout(() => window.QA.runAll(), 1000);
+    }
+  
     Graphics.init(ctx);
     UI.init(canvas);
     SoundFX.init();
@@ -31,3 +58,5 @@
     render();
     console.log('Stage 3: Complete Clash Royale with lanes, towers, and sounds!');
 })();
+    
+

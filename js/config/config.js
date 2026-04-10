@@ -45,9 +45,11 @@ window.CONFIG = {
     },
     
     CARDS: {
+
         // Карты
         knight: {
             // Рыцарь
+        knight: {
             name: 'Рыцарь',
             cost: 3,
             unitType: 'knight',

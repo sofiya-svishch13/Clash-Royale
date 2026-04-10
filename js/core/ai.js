@@ -1,12 +1,18 @@
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// AI - противник team AI: @Eridan6935 (Эридан), @prosto73 (Рома), @sofya-svishch13 (София), @vikakilka91-dev (Вика)
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-window.AI = {
-    lastDeployTime: 0,
-    deployDelay: 2.5, // секунды между спавнами
+/// ============================================================
+// ai.js - Искусственный интеллект противника
+// ============================================================
+
+class AI {
+    constructor(gameState, deck) {
+        this.gameState = gameState;
+        this.deck = deck;
+        this.lastDeployTime = 0;
+        this.deployDelay = 3.0; // секунды
+        this.lastDecisionTime = 0;
+    }
     
-    update: function(now) {
-        if (!GameState.isActive) return;
+    update(now) {
+        if (!this.gameState.isActive) return;
         
         if (this.lastDeployTime === 0) {
             this.lastDeployTime = now;
@@ -15,40 +21,50 @@ window.AI = {
         
         // Проверяем время для спавна
         if (now - this.lastDeployTime >= this.deployDelay) {
-            // Выбираем случайного юнита
-            const types = ['knight', 'archer', 'mage'];
-            const type = types[Math.floor(Math.random() * 3)];
-            const cost = CONFIG.GAME.units[type].cost;
-            
-            // Проверяем эликсир
-            if (GameState.elixir >= cost) {
-                // Создаем юнита на вражеской стороне (вверху)
-                const x = CONFIG.GAME.spawn.minX + Math.random() * (CONFIG.GAME.spawn.maxX - CONFIG.GAME.spawn.minX);
-                const stats = CONFIG.GAME.units[type];
-                
-                const unit = {
-                    x: x,
-                    y: CONFIG.GAME.spawn.enemyY, // 60 - вверху
-                    type: type,
-                    isPlayer: false,
-                    hp: stats.hp,
-                    maxHp: stats.hp,
-                    damage: stats.damage,
-                    range: stats.range,
-                    speed: stats.speed,
-                    attackTimer: 0
-                };
-                
-                // Тратим эликсир через GameState
-                if (GameState.deployUnit(unit)) {
-                    this.lastDeployTime = now;
-                    if (window.QA) QA.log(`AI deployed ${type} - Elixir: ${Math.floor(GameState.elixir)}`);
-                }
-            }
+            this.makeDecision(now);
         }
-    },
-    
-    reset: function() {
-        this.lastDeployTime = 0;
     }
-};
+    
+    makeDecision(now) {
+        // Получаем доступные карты в руке
+        const availableCards = this.deck.hand.filter(card => 
+            this.gameState.canDeploy(card.cost)
+        );
+        
+        if (availableCards.length === 0) return;
+        
+        // Выбираем случайную карту из доступных
+        const randomIndex = Math.floor(Math.random() * availableCards.length);
+        const card = availableCards[randomIndex];
+        
+        // Выбираем дорожку (рандомно или с учетом угроз)
+        const lane = Math.random() < 0.5 ? 'left' : 'right';
+        
+        // Позиция спавна (на вражеской стороне, вверху)
+        const x = lane === 'left' ? 150 : window.CONFIG.GAME.width - 150;
+        const y = 80; // Верхняя часть арены
+        
+        // Создаем юнита
+        const unit = new Unit(
+            x, y,
+            card.unitType,
+            false, // isPlayer = false (враг)
+            lane,
+            card
+        );
+        
+        if (this.gameState.deployUnit(unit)) {
+            this.lastDeployTime = now;
+            console.log(`🤖 AI призвал ${card.name} на ${lane} дорожку`);
+            
+            if (window.SoundFX) window.SoundFX.playDeploy();
+        }
+    }
+    
+    reset() {
+        this.lastDeployTime = 0;
+        this.lastDecisionTime = 0;
+    }
+}
+
+window.AI = null;
