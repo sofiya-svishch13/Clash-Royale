@@ -22,9 +22,6 @@ window.CONFIG = {
         victory: 'assets/sounds/victory.mp3',
         defeat: 'assets/sounds/defeat.mp3'
     },
-    //deploy.mp3'
-//hit.mp3'
-// tower_hit.mp3'
     GAME: {
         width: 900,
         height: 600,
@@ -81,3 +78,6 @@ window.CONFIG = {
         }
     }
 };
+//deploy.mp3'
+//hit.mp3'
+// tower_hit.mp3'
