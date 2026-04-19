@@ -1,135 +1,55 @@
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
+// ============================================================
+// main.js - Точка входа в игру
+// ============================================================
 
-function gameLoop() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-     // Арена
-    drawArena(ctx);
-    drawRiver(ctx);
-    drawBridge(ctx);
+document.addEventListener('DOMContentLoaded', async () => {
+    console.log('🚀 Clash Royale - Stage 1');
     
-    // Башни
-    drawPlayerTower(ctx, 150, 400);
-    drawEnemyTower(ctx, 650, 400);
-    drawKingTower(ctx, 400, 200, true);
+    const canvas = document.getElementById('gameCanvas');
+    if (!canvas) {
+        console.error('❌ Canvas не найден!');
+        return;
+    }
+     // Установка размеров canvas
+    canvas.width = window.CONFIG.GAME.width;
+    canvas.height = window.CONFIG.GAME.height;
+    const ctx = canvas.getContext('2d');
+  
+     // Создание и запуск ядра игры
+    const core = new Core(canvas, ctx);
+    await core.init();
+  
+      // Глобальные объекты для доступа из консоли (для отладки)
+    window.gameCore = core;
+    window.gameState = core.gameState;
+    window.gameGraphics = core.graphics;
     
-     // Войска
-    drawTroop(ctx, 200, 300, 'knight', true);
-    drawTroop(ctx, 300, 350, 'archer', true);
-    drawTroop(ctx, 500, 300, 'knight', false);
-    drawTroop(ctx, 600, 350, 'mage', false);
+    console.log('🎮 Игра запущена!');
+  
+    SoundFX.init();
+    GameState.startBattle();
+    Core.startLoop();
     
-    // Интерфейс
-    drawElixirBar(ctx, 6, 10);
-    drawTowerScore(ctx, 2, 1);
-    
-    requestAnimationFrame(gameLoop);
-}
-
-gameLoop();
-
-
-// Main Entry Point - финальная интеграция всех модулей
-(function() {
-    console.log('🎮 Clash Royale Mini - Initializing...');
-    console.log('═══════════════════════════════');
-    
-    // Функция инициализации после загрузки DOM
-    function init() {
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
+    function render() {
+        Graphics.drawArena();
+        Graphics.drawPlayerLeftTower();
+        Graphics.drawPlayerRightTower();
+        Graphics.drawEnemyLeftTower();
+        Graphics.drawEnemyRightTower();
+        Graphics.drawKingTower(true);
+        Graphics.drawKingTower(false);
         
-        // 1. Инициализация QA (должен быть первым для логирования)
-        if (window.QA) {
-            QA.init();
-            QA.log('QA System Online', 'success');
+        const units = GameState.getUnits();
+        for (let i = 0; i < units.length; i++) {
+            Graphics.drawUnit(units[i]);
         }
         
-        // 2. Инициализация Config
-        if (window.Config) {
-            QA.log('Config loaded', 'success');
-        }
-        
-        // 3. Инициализация Balance
-        if (window.Balance) {
-            Balance.updateConfig();
-            QA.log('Balance system ready', 'success');
-        }
-        
-        // 4. Инициализация Core (игровой цикл)
-        if (window.Core) {
-            Core.init('gameCanvas');
-            QA.log('Core engine started', 'success');
-        }
-        
-        // 5. Инициализация Graphics
-        if (window.Graphics) {
-            Graphics.init(ctx);
-            QA.log('Graphics system ready', 'success');
-        }
-        
-        // 6. Инициализация Effects
-        if (window.Effects) {
-            Effects.init(ctx);
-            QA.log('Effects system ready', 'success');
-        }
-        
-        // 7. Инициализация Sound
-        if (window.SoundFX) {
-            SoundFX.init();
-            QA.log('Sound system ready', 'success');
-        }
-        
-        // 8. Инициализация State
-        if (window.GameState) {
-            GameState.setState('menu');
-            QA.log('GameState initialized', 'success');
-        }
-        
-        // 9. Инициализация UI
-        if (window.UI) {
-            UI.init();
-            QA.log('UI initialized', 'success');
-        }
-        
-        // 10. Инициализация Input
-        if (window.Input) {
-            Input.init(canvas);
-            QA.log('Input system ready', 'success');
-        }
-        
-        // 11. Инициализация AI
-        if (window.AI) {
-            AI.init();
-            QA.log('AI system ready', 'success');
-        }
-        
-        // 12. Запуск тестов через 1 секунду
-        setTimeout(() => {
-            if (window.QA) {
-                QA.runAllTests();
-            }
-            
-            console.log('═══════════════════════════════');
-            console.log('✨ ALL SYSTEMS READY!');
-            console.log('📖 Instructions:');
-            console.log('   1. Click "Start Battle"');
-            console.log('   2. Select a unit (Knight/Archer/Mage)');
-            console.log('   3. Click on BOTTOM half to deploy');
-            console.log('   4. AI will deploy units from top');
-            console.log('═══════════════════════════════');
-            
-            if (window.UI) {
-                UI.showMessage('🎮 Game Ready! Click "Start Battle"', 3000);
-            }
-        }, 1000);
+        Graphics.drawUI();
+        requestAnimationFrame(render);
     }
     
-    // Ждем загрузки DOM
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
-    } else {
-        init();
-    }
-})();
+    render();
+    console.log('Stage 3: Complete Clash Royale with lanes, towers, and sounds!');
+})
+    
+
