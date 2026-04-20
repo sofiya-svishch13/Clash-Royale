@@ -11,6 +11,14 @@ class Graphics {
         this.images = {};
         this.loadAllImages();
     }
+
+    /**
+     * Возвращает области карт для обработки кликов
+     * @returns {Array} Массив областей карт
+     */
+    getCardAreas() {
+        return this.lastCardAreas || [];
+    }
     
     /**
      * Загружает все изображения из глобальной конфигурации window.CONFIG.IMAGES
