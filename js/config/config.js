@@ -13,7 +13,7 @@ window.CONFIG = {
         playerTower: 'assets/images/towers/player_tower.png',
         enemyTower: 'assets/images/towers/enemy_tower.png',
         kingTower: 'assets/images/towers/king_tower.png',
-        kingEnemyTower: 'assets/images/towers/king-enemy-tower.png'
+        kingEnemyTower: 'assets/images/towers/king_enemy_tower.png'
     },
     
     SOUNDS: {
