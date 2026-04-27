@@ -1,93 +1,142 @@
-// ИНТЕРФЕЙС - обработка кнопок и кликов
 // ============================================================
-// Модуль UI - Управление пользовательским интерфейсом
-// ============================================================
-// Назначение: связывает HTML интерфейс с игровой логикой
-// Зависимости: GameState, CONFIG
+// ui.js - Обработка пользовательского ввода (ОБНОВЛЕНО)
 // ============================================================
 
-window.UI = {
-    // --------------------------------------------------------
-    // ПУБЛИЧНЫЕ СВОЙСТВА
-    // --------------------------------------------------------
-    
-    /**
-     * Ссылка на canvas элемент, где отображается игра
-     * @type {HTMLCanvasElement}
-     */
-    canvas: null,
-    
-    // --------------------------------------------------------
-    // ПУБЛИЧНЫЕ МЕТОДЫ
-    // --------------------------------------------------------
-    
-    /**
-     * Инициализация пользовательского интерфейса
-     * Вызывается один раз при старте игры
-     * 
-     * @param {HTMLCanvasElement} canvas - игровой canvas элемент
-     */
-    init: function(canvas) {
-        // Сохраняем ссылку на canvas для дальнейшего использования
+class UI {
+    constructor(canvas, gameState, deck) {
         this.canvas = canvas;
-        
-        // ----------------------------------------------------
-        // 1. НАСТРОЙКА КНОПОК ВЫБОРА ЮНИТОВ
-        // ----------------------------------------------------
-        
-        // Кнопка "Рыцарь" - устанавливает выбранного юнита в рыцаря
-        document.getElementById('btnKnight').onclick = () => {
-            GameState.selectedUnit = 'knight';
-            console.log('Selected: Knight');
-        };
-        
-        // Кнопка "Лучник" - устанавливает выбранного юнита в лучника
-        document.getElementById('btnArcher').onclick = () => {
-            GameState.selectedUnit = 'archer';
-            console.log('Selected: Archer');
-        };
-        
-        // Кнопка "Маг" - устанавливает выбранного юнита в мага
-        document.getElementById('btnMage').onclick = () => {
-            GameState.selectedUnit = 'mage';
-            console.log('Selected: Mage');
-        };
-        
-        // ----------------------------------------------------
-        // 2. НАСТРОЙКА КНОПКИ СБРОСА БИТВЫ
-        // ----------------------------------------------------
-        
-        // Кнопка "Сброс" - перезапускает битву
-        document.getElementById('btnReset').onclick = () => {
-            GameState.startBattle();
-        };
-        
-        // ----------------------------------------------------
-        // 3. НАСТРОЙКА КЛИКОВ ПО CANVAS (СПАВН ЮНИТОВ)
-        // ----------------------------------------------------
-        
-        /**
-         * Обработчик клика по игровому полю
-         * Позволяет размещать юнитов в нижней половине экрана
-         */
+        this.gameState = gameState;
+        this.deck = deck;
+        this.selectedCardIndex = 0;
+        this.setupEventListeners();
+        this.setupResetButton();
+        this.isPlacingMode = false; // Режим размещения юнита
+    }
+    
+    setupEventListeners() {
+        // Клик по канвасу для призыва юнита (ТОЛЬКО если выбран активный режим)
         this.canvas.addEventListener('click', (e) => {
-            // Игра должна быть активна
-            if (!GameState.isActive) return;
+            if (!this.gameState.isActive) return;
+            if (window.Effects) {
+            window.Effects.addDeployEffect(x, finalY);
+        }
             
-            // Получаем границы canvas на странице
+            // Если не в режиме размещения - ничего не делаем
+            if (!this.isPlacingMode) return;
+            
             const rect = this.canvas.getBoundingClientRect();
+            const scaleX = this.canvas.width / rect.width;
+            const scaleY = this.canvas.height / rect.height;
             
-            // Конвертируем экранные координаты в игровые
-            // Формула: (клик - граница) * (игровой_размер / фактический_размер)
-            const x = (e.clientX - rect.left) * (CONFIG.GAME.width / rect.width);
-            const y = (e.clientY - rect.top) * (CONFIG.GAME.height / rect.height);
+            const canvasX = (e.clientX - rect.left) * scaleX;
+            const canvasY = (e.clientY - rect.top) * scaleY;
             
-            // Размещение разрешено только в нижней половине экрана (y > высота/2)
-            if (y > CONFIG.GAME.height / 2) {
-                // TODO: Заменить console.log на реальный вызов спавна юнита
-                // Ожидаемый вызов: GameState.spawnUnit(x, y, GameState.selectedUnit)
-                console.log(`Click at (${Math.floor(x)}, ${Math.floor(y)}) - deploy here`);
+            // Проверяем, что клик на нижней половине (игрок может ставить только на своей стороне)
+            if (canvasY > window.CONFIG.GAME.height / 2) {
+                this.deployAtPosition(canvasX, canvasY);
             }
         });
+        
+        // Убираем старую обработку цифр, теперь выбор через клик по картам
+        // Карты теперь кликабельны на canvas
     }
-};
+    
+    // Новый метод: обработка клика по карте в руке
+    handleCardClick(index, card) {
+        if (!this.gameState.isActive) return;
+        
+        // Проверяем, хватает ли эликсира
+        if (!this.gameState.canDeploy(card.cost)) {
+            console.log(`❌ Не хватает эликсира! Нужно ${card.cost}, есть ${Math.floor(this.gameState.elixir)}`);
+            if (window.Effects) {
+            window.Effects.addInsufficientEffect(canvasX, canvasY);
+        }
+            // Визуальная обратная связь
+            if (window.Effects) {
+                window.Effects.screenFlash('255,0,0', 0.2);
+            }
+            return;
+        }
+        
+        // Выбираем карту и активируем режим размещения
+        this.selectedCardIndex = this.deck.hand.indexOf(card);
+        this.isPlacingMode = true;
+        this.gameState.selectedCardIndex = this.selectedCardIndex;
+        
+        // Визуальная обратная связь - подсветка карты в graphics.js
+        
+        console.log(`🃏 Выбрана карта ${card.name} (${card.cost}⚡). Кликните на арене для призыва.`);
+        
+        // Сброс режима размещения через 5 секунд
+        if (this.placementTimeout) clearTimeout(this.placementTimeout);
+        this.placementTimeout = setTimeout(() => {
+            this.isPlacingMode = false;
+            console.log('⏰ Режим размещения отменен');
+        }, 5000);
+    }
+    
+    setupResetButton() {
+        const btnReset = document.getElementById('btnReset');
+        if (btnReset) {
+            btnReset.onclick = () => {
+                this.gameState.startBattle();
+                if (this.deck) this.deck.resetCycle();
+                this.selectedCardIndex = 0;
+                this.isPlacingMode = false;
+                console.log('🔄 Новая битва!');
+            };
+        }
+    }
+    
+    deployAtPosition(x, y) {
+    const card = this.deck.getCard(this.selectedCardIndex);
+    if (!card) {
+        this.isPlacingMode = false;
+        return;
+    }
+    
+    if (!this.gameState.canDeploy(card.cost, true)) {
+        if (window.Effects) window.Effects.addInsufficientEffect(x, y);
+        this.isPlacingMode = false;
+        return;
+    }
+    
+    // Проверка типа карты
+    if (card.type === 'spell') {
+        // Применяем заклинание
+        const spell = new Spell(card.id, card);
+        const hitCount = spell.cast(x, y, this.gameState);
+        
+        if (hitCount > 0) {
+            this.gameState.spendElixir(card.cost, true);
+            this.deck.useCard(this.selectedCardIndex);
+            if (window.SoundFX) window.SoundFX.playSpell();
+        }
+        
+        this.isPlacingMode = false;
+        return;
+    }
+    
+    // Существующий код для юнитов...
+    const lane = x < window.CONFIG.GAME.width / 2 ? 'left' : 'right';
+    }
+    
+    updateSelectedCard(index) {
+        this.selectedCardIndex = index;
+        if (this.gameState) {
+            this.gameState.selectedCardIndex = index;
+        }
+        if (window.Effects) {
+            window.Effects.addCardSelectEffect(x, y);
+        }
+    }
+    
+    // Новый метод для отмены режима размещения
+    cancelPlacement() {
+        this.isPlacingMode = false;
+        if (this.placementTimeout) clearTimeout(this.placementTimeout);
+        console.log('❌ Режим размещения отменен');
+    }
+}
+
+window.UI = null;
