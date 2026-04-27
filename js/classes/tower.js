@@ -56,6 +56,9 @@ class Tower {
     
     attack(target) {
         target.hp = Math.max(0, target.hp - this.damage);
+        if (window.Effects) {
+            window.Effects.addTowerHitEffect(target.x, target.y);
+        }
         
         if (window.SoundFX) window.SoundFX.playTowerHit();
         console.log(`🏰 Башня ${this.side} ${this.position} атакует на ${this.damage} урона`);
